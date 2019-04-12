@@ -21,7 +21,7 @@ This library depends on the [node-usb](https://github.com/tessel/node-usb) libra
 Two main topics can cause you problem on Linux: Permissions and ModemManager. To avoid them, you can copy the udev rule `90-mpi-usb.rules` that is on the root folder of this project to `/etc/udev/rules.d`, and reload them with `udevadm control --reload`(or just restart your system).
 
 The udev rule will:
- - Put the MPI-USB adapter on the `diaout` group, where most users already are
+ - Put the MPI-USB adapter on the `dialout` group, where most users already are
  - Set a flag that instructs ModemManager to ignore the adapter
 
 Feel free to adjust the rule to your needs
@@ -91,4 +91,5 @@ Besides all `//TODO`s on the code, we have:
 ## License
 
 Copyright: (c) 2019, Guilherme Francescon Cittolin <gfcittolin@gmail.com>
+
 GNU General Public License v3.0+ (see LICENSE or https://www.gnu.org/licenses/gpl-3.0.txt)
