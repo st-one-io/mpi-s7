@@ -4,6 +4,8 @@ This library aims to implement all the protocols needed to communicate with MPI-
 
 This software is not affiliated with Siemens in any way, nor am I. S7-300, S7-400, S7-1200 and S7-1500 are trademarks of Siemens AG.
 
+This node was created by [Smart-Tech](https://netsmarttech.com) as part of the [ST-One](https://netsmarttech.com/page/st-one) project.
+
 
 ## Disclaimer
 
@@ -90,6 +92,6 @@ Besides all `//TODO`s on the code, we have:
 
 ## License
 
-Copyright: (c) 2019, Guilherme Francescon Cittolin <gfcittolin@gmail.com>
+Copyright: (c) 2019, Smart-Tech, Guilherme Francescon Cittolin <guilherme.francescon@netsmarttech.com>
 
 GNU General Public License v3.0+ (see LICENSE or https://www.gnu.org/licenses/gpl-3.0.txt)
