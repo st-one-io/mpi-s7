@@ -1,0 +1,52 @@
+{
+    "type": {
+        "ADAPTER": 1,
+        "BUS": 4
+    },
+    "adapter": {
+        "command": {
+            "CONNECT": 3,
+            "DISCONNECT": 4,
+            "BUS_SCAN": 7,
+            "UNKNOWN_08": 8,
+            "UNKNOWN_0C": 12,
+            "IDENTIFY": 13,
+            "CONFIG_REQUEST": 14
+        },
+        "direction": {
+            "REQUEST": 2,
+            "RESPONSE": 32
+        }
+    },
+    "bus": {
+        "subtype": {
+            "UNCONNECTED_DATA": 13,
+            "CONNECTED_DATA": 12
+        },
+        "command": {
+            "CONNECTION_REQUEST": 224,
+            "CONNECTION_RESPONSE": 208,
+            "CONNECTION_CONFIRM": 5,
+            "DATA_EXCHANGE": 241,
+            "DATA_ACK": 176,
+            "DISCONNECTION_REQUEST": 128,
+            "DISCONNECTION_CONFIRM": 192
+        },
+        "connection": {
+            "commType": {
+                "PG": 1,
+                "OP": 2,
+                "S7_BASIC": 3
+            }
+        }
+    },
+    "speed": {
+        "9K": 0,
+        "19K": 1,
+        "187K": 2,
+        "500K": 3,
+        "1500k": 4,
+        "45k": 5,
+        "93k": 6
+    }
+}

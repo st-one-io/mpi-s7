@@ -1,0 +1,28 @@
+
+##1 - MPI Adapter using address 1 instead of 0 (only byte 16 of `01 03 02` command changes)
+out 7e fc 9b cd 7e
+in  7e ce 0a df 7e
+out 7e 00 03 fc 01 0d 02 ea c3 7e
+in  7e 01 09 f6 01 0d 20 56 30 30 2e 38 35 7f 30 7e
+out 7e 11 23 dc 01 03 02 17 00 9f 01 3c 00 90 01 14 00 00 05 00 01 0f 02 01 01 03 85 ff 00 01 00 0c 00 14 00 3c 00 00 00 5d 6d 7e
+in  7e 12 09 f6 01 03 20 56 30 30 2e 38 35 44 92 7e
+out 7e 22 03 fc 01 0e 02 b4 64 7e
+in  7e 23 40 bf 01 0e 20 02 00 01 1e 01 00 01 ff ff 01 03 01 9f 00 14 01 90 00 0c 00 00 27 00 05 1f 02 02 00 35 01 09 01 09 1c 00 00 00 ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff dd 10 7e
+out 7e 33 03 fc 01 0e 02 2f 22 7e
+in  7e 34 40 bf 01 0e 20 02 00 01 1e 01 00 01 ff ff 01 03 01 9f 00 14 01 90 00 0c 00 00 27 00 05 1f 02 02 00 35 01 09 01 09 1c 00 00 00 ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ed 23 7e
+out 7e 44 03 fc 01 08 02 2f af 7e
+in  7e 45 07 f8 01 08 20 00 30 06 01 96 34 7e
+out 7e 55 03 fc 01 07 02 7c 6a 7e
+in  7e 56 85 7a 01 07 20 00 01 1f 10 30 10 10 10 10 30 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 37 75 7e
+out 7e 66 03 fc 01 0e 02 c9 76 7e
+in  7e 67 40 bf 01 0e 20 02 00 01 1e 01 00 01 ff ff 01 03 01 9f 00 14 01 90 00 0c 00 00 27 00 05 1f 02 02 00 35 01 09 01 09 1c 00 00 00 ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff 7e 5b 7e
+out 7e 77 03 fc 01 0e 02 52 30 7e
+in  7e 70 40 bf 01 0e 20 02 00 01 1e 01 00 01 ff ff 01 03 01 9f 00 14 01 90 00 0c 00 00 27 00 05 1f 02 02 00 35 01 09 01 09 1c 00 00 00 ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff 4e 68 7e
+out 7e 00 03 fc 01 08 02 52 bd 7e
+in  7e 01 07 f8 01 08 20 00 30 06 01 71 d5 7e
+out 7e 11 03 fc 01 08 02 c9 fb 7e
+in  7e 12 07 f8 01 08 20 00 30 06 01 4a 73 7e
+out 7e 22 03 fc 01 04 02 c4 99 7e
+in  7e 23 03 fc 01 04 20 ff 9f 7e
+out 7e ca 2e 99 7e
+in  7e ce 0a df 7e

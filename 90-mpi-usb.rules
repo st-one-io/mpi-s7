@@ -1,0 +1,2 @@
+# udev rule for Siemens MPI-USB adapters
+ACTION=="add", ATTRS{idVendor}=="0908", ATTRS{idProduct}=="0004", ENV{ID_MM_DEVICE_IGNORE}="1", GROUP+="dialout", SYMLINK+="mpiusb mpiusb%n"

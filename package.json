@@ -1,0 +1,21 @@
+{
+  "name": "mpi-s7",
+  "version": "0.1.0",
+  "description": "Node.JS library to communicate with MPI-USB adapters",
+  "main": "src/index.js",
+  "scripts": {
+    "test": "nyc --reporter=html --reporter=text --reporter=text-summary mocha --timeout=3000 test/**/**.spec.js",
+    "doc": "jsdoc -d doc/jsdoc/ -r -R README.md src/"
+  },
+  "author": "Guilherme Francescon Cittolin <gfcittolin@gmail.com>",
+  "license": "GPL-3.0-or-later",
+  "devDependencies": {
+    "chai": "^4.2.0",
+    "jsdoc": "^3.5.5",
+    "mocha": "^5.2.0",
+    "nyc": "^13.3.0"
+  },
+  "dependencies": {
+    "usb": "^1.5.0"
+  }
+}

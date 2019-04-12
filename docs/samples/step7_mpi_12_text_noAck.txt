@@ -1,0 +1,25 @@
+out 7e fc 9b cd 7e
+in  7e ce 0a df 7e
+out 7e 00 17 e8 01 03 02 27 00 64 00 25 00 3c 00 16 00 00 0a 01 00 1f 01 01 01 03 81 8a 02 7e
+in  7e 01 09 f6 01 03 20 45 3d 30 33 31 33 0f fa 7e
+out 7e ca 2e 99 7e
+in  7e ce 0a df 7e
+out 7e fc 9b cd 7e
+in  7e ce 0a df 7e
+out 7e 00 17 e8 01 03 02 27 00 64 00 25 00 3c 00 16 00 00 0a 01 00 1f 01 01 01 03 81 8a 02 7e
+in  7e 01 09 f6 01 03 20 45 3d 30 33 31 33 0f fa 7e
+out 7e ca 2e 99 7e
+in  7e ce 0a df 7e
+out 7e fc 9b cd 7e
+in  7e ce 0a df 7e
+out 7e 00 17 e8 01 03 02 27 00 64 00 25 00 3c 00 16 00 00 0a 01 00 1f 01 01 01 03 81 8a 02 7e
+in  7e 01 09 f6 01 03 20 45 3d 30 33 31 33 0f fa 7e
+out 7e ca 2e 99 7e
+in  7e ce 0a df 7e
+out 7e fc 9b cd 7e
+in  7e ce 0a df 7e
+out 7e 00 17 e8 01 03 02 27 00 64 00 25 00 3c 00 16 00 00 0a 01 00 1f 01 01 01 03 81 8a 02 7e
+in  7e 01 09 f6 01 03 20 45 3d 30 33 31 33 0f fa 7e
+out 7e ca 2e 99 7e
+in  7e ce 0a df 7e
+
