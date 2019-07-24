@@ -37,7 +37,8 @@ class PPPSocket extends Duplex {
             device: device,
             iface: null,
             endpointIn: null,
-            endpointOut: null
+            endpointOut: null,
+            hadKernelDriver: false
         };
         this._pppParser = new PPPParser();
         this._pppSerializer = new PPPSerializer();
@@ -274,7 +275,7 @@ class PPPSocket extends Duplex {
             usb.iface.release(true, (e) => {
                 if (maybeReject(e)) return;
 
-                if (process.platform === 'linux' && !usb.iface.isKernelDriverActive()) {
+                if (usb.hadKernelDriver && !usb.iface.isKernelDriverActive()) {
                     usb.iface.attachKernelDriver();
                 }
 
@@ -308,6 +309,7 @@ class PPPSocket extends Duplex {
             usb.iface = usb.device.interface(USB_IFACE_DATA);
 
             if (process.platform === 'linux' && usb.iface.isKernelDriverActive()){
+                usb.hadKernelDriver = true;
                 usb.iface.detachKernelDriver();
             }
 
