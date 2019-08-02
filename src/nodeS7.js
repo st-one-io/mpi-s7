@@ -99,6 +99,8 @@ function NodeS7(opts) {
 
 	self.mpiAddress = 2;
 	self.selfMpiAddress = 0;
+	self.mpiAdapterClosePending = false;
+	self.mpiAdapter = null;
 }
 
 NodeS7.prototype.setTranslationCB = function (cb) {
@@ -120,23 +122,7 @@ NodeS7.prototype.initiateConnection = function (cParam, callback) {
 	if (typeof (cParam.selfMpiAddress) !== 'undefined') {
 		self.selfMpiAddress = parseInt(cParam.selfMpiAddress);
 	}
-	if (cParam.dev === undefined) {
-		cParam.dev = usb.findByIds(MPI_USB_VID, MPI_USB_PID);
-	}
-	if (!cParam.dev){
-		process.nextTick(() => {
-			var err = new Error("Could not find any MPI-USB adater, check if the device has been correctly installed");
-			if (typeof callback === 'function') {
-				callback(err);
-			} else {
-				throw err;
-			}
-		});
-		return;
-	}
-	if (typeof (cParam.connection_name) === 'undefined') {
-		self.connectionID = cParam.host + " S" + self.slot;
-	} else if (cParam.dev !== undefined) {
+	if (cParam.dev !== undefined) {
 		self.connectionID = cParam.dev.busNumber + "." + cParam.dev.deviceAddress + " MPI " + self.mpiAddress;
 	} else {
 		self.connectionID = cParam.connection_name;
@@ -173,30 +159,48 @@ NodeS7.prototype.dropConnection = function (callback) {
 }
 
 NodeS7.prototype.connectNow = function (cParam) {
-	var self = this;
+	var self = this, usbDev;
+	outputLog('Connect NOW');
+
 	// Don't re-trigger.
 	if (self.isoConnectionState >= 1) {
 		return;
 	}
 	self.connectionCleanup();
 
-	self.mpiAdapter = new MpiAdapter(cParam.dev);
+	if (self.mpiAdapter) {
+		outputLog('There is still an instance of MPI Adapter, deferring');
+		return;
+	}
 
+	var usbDev = cParam.dev || usb.findByIds(MPI_USB_VID, MPI_USB_PID);
+	if (!usbDev) {
+		process.nextTick(() => {
+			var e = new Error("Could not find any MPI-USB adater, check if the device has been correctly installed");
+			outputLog('MPI adapter not found');
+			self.connectError.call(self, e);
+		});
+		return;
+	}
+
+	self.mpiAdapter = new MpiAdapter(usbDev);
+	
 	self.mpiAdapter.on('error', e => {
-		self.connectError.apply(self, e);
+		self.connectError.call(self, e);
 	});
-
+	
 	self.mpiAdapter.on('close', function () {
 		//self.connectError.apply(self, arguments);
 		//TODO - what to do?
 	});
-
+	
+	self.mpiAdapterClosePending = false;
 	self.mpiAdapter.open().then(() => {
 		outputLog('MPI adapter opened successfully');
 		self.onMPIConnect.apply(self, arguments);
 	}).catch(e => {
 		outputLog('MPI adapter failed to open', e);
-		self.connectError.apply(self, e);
+		self.connectError.call(self, e);
 	});
 
 	self.isoConnectionState = 1; // 1 = trying to connect  
@@ -220,7 +224,7 @@ NodeS7.prototype.connectError = function (e) {
 
 NodeS7.prototype.readWriteError = function (e) {
 	var self = this;
-	outputLog('We Caught a read/write error ' + e.code + ' - will DISCONNECT and attempt to reconnect.');
+	outputLog('We Caught a read/write error ' + e + ' - will DISCONNECT and attempt to reconnect.');
 	self.isoConnectionState = 0;
 	self.connectionReset();
 }
@@ -264,8 +268,7 @@ NodeS7.prototype.packetTimeout = function (packetType, packetSeqNum) {
 }
 
 NodeS7.prototype.onMPIConnect = function () {
-	var self = this,
-		connBuf;
+	var self = this;
 
 	//outputLog('TCP Connection Established to ' + self.isoclient.remoteAddress + ' on port ' + self.isoclient.remotePort, 0, self.connectionID);
 	outputLog('Will attempt S7 connection', 0, self.connectionID);
@@ -277,17 +280,6 @@ NodeS7.prototype.onMPIConnect = function () {
 	self.connectTimeout = setTimeout(function () {
 		self.packetTimeout.apply(self, arguments);
 	}, self.globalTimeout, "connect");
-
-	connBuf = self.connectReq.slice();
-
-	if (self.localTSAP !== null && self.remoteTSAP !== null) {
-		outputLog('Using localTSAP [0x' + self.localTSAP.toString(16) + '] and remoteTSAP [0x' + self.remoteTSAP.toString(16) + ']', 0, self.connectionID);
-		connBuf.writeUInt16BE(self.localTSAP, 16)
-		connBuf.writeUInt16BE(self.remoteTSAP, 20)
-	} else {
-		outputLog('Using rack [' + self.rack + '] and slot [' + self.slot + ']', 0, self.connectionID);
-		connBuf[21] = self.rack * 32 + self.slot;
-	}
 
 	self.mpiAdapter.createStream(self.mpiAddress).then(stream => {
 		self.isoclient = stream;
@@ -304,7 +296,7 @@ NodeS7.prototype.onMPIConnect = function () {
 
 		self.onISOConnectReply.apply(self, arguments);
 	}).catch(e => {
-		self.connectError.apply(self, e);
+		self.connectError(e);
 	});
 }
 
@@ -1463,13 +1455,28 @@ NodeS7.prototype.onClientClose = function () {
 	// Without this, client applications had to be prepared for a read/write not returning.
 	self.connectionReset();
 
-	// initiate the callback stored by dropConnection
-	if (self.dropConnectionCallback) {
+	function callDropConnection() {
 		self.dropConnectionCallback();
 		// prevent any possiblity of the callback being called twice
 		self.dropConnectionCallback = null;
 		// and cancel the timeout
 		clearTimeout(self.dropConnectionTimer);
+		//clear mpiAdapter
+		self.mpiAdapter = null;
+	}
+
+	// initiate the callback stored by dropConnection
+	if (self.dropConnectionCallback) {
+		if (self.mpiAdapter) {
+			if(!self.mpiAdapterClosePending) {
+				self.mpiAdapterClosePending = true;
+				self.mpiAdapter.close().then(callDropConnection).catch(callDropConnection);
+			} else {
+				outputLog("Skipping repeated mpiAdapter close on onClientClose");
+			}
+		} else {
+			callDropConnection();
+		}
 	}
 }
 
@@ -1494,7 +1501,18 @@ NodeS7.prototype.resetNow = function () {
 		self.isoclient.end();
 	}
 	if(self.mpiAdapter) {
-		self.mpiAdapter.close().then(() => console.log("mpiAdapter closed")).catch(e => console.log("Error closing mpiAdapter", e));
+		if (!self.mpiAdapterClosePending) {
+			self.mpiAdapterClosePending = true;
+			self.mpiAdapter.close().then(() => {
+				outputLog("mpiAdapter closed");
+				self.mpiAdapter = null;
+			}).catch(e => {
+				outputLog("Error closing mpiAdapter", e)
+				self.mpiAdapter = null;
+			});
+		} else {
+			outputLog("Skipping repeated mpiAdapter close on resetNow");
+		}
 	}
 	outputLog('ResetNOW is happening');
 	self.resetPending = false;
@@ -1520,13 +1538,21 @@ NodeS7.prototype.connectionCleanup = function () {
 		self.isoclient.removeAllListeners('connect');
 		self.isoclient.removeAllListeners('end');
 		self.isoclient.removeAllListeners('close');
-		self.isoclient.on('error', function () {
-			outputLog('TCP socket error following connection cleanup');
+		self.isoclient.on('error', function (e) {
+			outputLog('TCP socket error following connection cleanup: ' + e);
 		});
 	}
 	if(self.mpiAdapter){
-		self.mpiAdapter.close();
-		self.mpiAdapter.removeAllListeners('error');
+		if (!self.mpiAdapterClosePending) {
+			self.mpiAdapterClosePending = true;
+			self.mpiAdapter.removeAllListeners('error');
+			self.mpiAdapter.on('error', function (e) {
+				outputLog('MPI Adapter error following connection cleanup: ' + e);
+			});
+			self.mpiAdapter.close().then(() => self.mpiAdapter = null).catch(() => self.mpiAdapter = null);
+		} else {
+			outputLog("Skipping repeated mpiAdapter close on connectionCleanup");
+		}
 	}
 	clearTimeout(self.connectTimeout);
 	clearTimeout(self.PDUTimeout);
