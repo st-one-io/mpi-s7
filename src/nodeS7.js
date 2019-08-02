@@ -143,14 +143,8 @@ NodeS7.prototype.dropConnection = function (callback) {
 
 		// but also start a timer to destroy the connection in case we do not receive the close
 		self.dropConnectionTimer = setTimeout(function () {
-			if (self.dropConnectionCallback) {
-				// clean up the connection now the socket has closed
-				self.connectionCleanup();
-				// initate the callback
-				self.dropConnectionCallback();
-				// prevent any possiblity of the callback being called twice
-				self.dropConnectionCallback = null;
-			}
+			outputLog('Timeout dropping the connection, closing it anyway');
+			self.onClientClose();
 		}, 2500);
 	} else {
 		// if client not active, then callback immediately
@@ -1446,6 +1440,8 @@ NodeS7.prototype.onClientDisconnect = function () {
 }
 
 NodeS7.prototype.onClientClose = function () {
+	outputLog("onClientClose called");
+
 	var self = this;
 	// clean up the connection now the socket has closed
 	// We used to call self.connectionCleanup() here, but it caused problems.
