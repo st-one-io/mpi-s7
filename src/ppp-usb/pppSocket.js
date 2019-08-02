@@ -243,13 +243,34 @@ class PPPSocket extends Duplex {
     _onUsbError(e, endpoint) {
         debug("PPPSocket _onUsbError", endpoint, e);
 
-        this.emit('error');
+        this.emit('error', e);
     } 
     
     _onUsbEnd(endpoint) {
         debug("PPPSocket _onUsbEnd", endpoint);
+    }
+    
+    _writeUsb(d) {
+        debug("PPPSocket _writeUsb", d);
 
-        
+        this._usb.outCount++;
+        this._usb.endpointOut.transfer(d, (e) => {
+            this._usb.outCount--;
+            if (this._usb.closePending) return this._closeUsb2();
+
+            if (!e) return;
+
+            if(this._msgOut) {
+                //we may have failed to write this msgOut, so reject it
+                this._msgOut.reject(e);
+                this._msgOut = null;
+                process.nextTick(() => this._processQueue());
+            }
+
+            debug("PPPSocket write-usb error", e);
+            this.emit('error', e);
+            this._closeUsb();
+        });
     }
 
     _closeTimeout() {
@@ -353,17 +374,7 @@ class PPPSocket extends Duplex {
                 debug("PPPSocket #onEndpointData", d);
                 this._pppParser.write(d);
             });
-            this._pppSerializer.on('data', d => {
-                debug("PPPSocket write-usb", d);
-                this._usb.outCount++;
-                this._usb.endpointOut.transfer(d, (e) => {
-                    this._usb.outCount--;
-                    if (this._usb.closePending) return this._closeUsb2();
-                    if (!e) return;
-                    this.emit('error', e);
-                    this._closeUsb();
-                });
-            });
+            this._pppSerializer.on('data', d => this._writeUsb(d));
 
             usb.endpointIn.startPoll();
 
