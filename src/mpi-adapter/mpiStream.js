@@ -16,12 +16,17 @@ class MPIStream extends Duplex {
 
     constructor(parent, opts, streamOpts) {
 
+        // automatically closes writable part when readable part closes
+        streamOpts = streamOpts || {};
+        streamOpts.allowHalfOpen = false;
+
         super(streamOpts);
 
         this._parent = parent;
         this._mpiAddr = opts.mpiAddr;
         this._localId = opts.localId;
         this._remoteId = opts.remoteId;
+        this._disconnected = false;
 
         debug("new MPIStream", this._localId, opts, streamOpts);
 
@@ -47,15 +52,53 @@ class MPIStream extends Duplex {
         this.push(data.payload);
     }
 
-    _handleIncomingDisconnectRequest(err) {
+    /**
+     * Handles a disconnection request
+     * The @param disconnected parameter signalizes that disconnect request and
+     * response has already been handled, so we don't need to do this again.
+     * @param {boolean} disconnected whether the stream is already disconnected
+     */
+    _handleIncomingDisconnectRequest(disconnected) {
         debug("MPIStream _handleIncomingDisconnectRequest", this._localId);
 
+        this._disconnected = !!disconnected;
+
         this.push(null); //signalizes end of read stream, emits 'end' event
-        this.emit('close'); //signalizes end of write stream
+        process.nextTick(() => this.emit('close')); //signalizes end of write stream
     }
 
-    _write(chunk, encoding, cb) {
-        debug("MPIStream _write", this._localId, encoding, chunk);
+    async _disconnectRequest() {
+        debug("MPIStream _disconnectRequest", this._localId);
+
+        if (this._disconnected) {
+            debug("MPIStream _disconnectRequest already-disconnected", this._localId);
+            return;
+        }
+        this._disconnected = true;
+
+        let cmd = {
+            type: C.type.BUS,
+            command: C.bus.command.DISCONNECTION_REQUEST,
+            mpiAddress: this._mpiAddr,
+            localId: this._localId,
+            remoteId: this._remoteId
+        };
+
+        let cmdData = await this._parent._mpiSerializer.serializeAsync(cmd);
+        debug("MPIStream _disconnectRequest cmdData", this._localId, cmdData);
+        let responseData = await this._parent._transport.sendPPPMessage(cmdData);
+        debug("MPIStream _disconnectRequest responseData", this._localId, responseData);
+        let response = await this._parent._mpiParser.parseAsync(responseData);
+        debug("MPIStream _disconnectRequest response", this._localId, response);
+
+        if (response.command !== C.bus.command.DISCONNECTION_CONFIRM) {
+            debug("MPIStream _disconnectRequest err-response-command", this._localId, response.command);
+            throw new Error(`Internal transport disconnection error: Unexpected command [${response.command}]`);
+        }
+    }
+
+    async _dataExchange(chunk) {
+        debug("MPIStream _dataExchange", this._localId, chunk);
 
         let msgSequence = this._nextSequence;
         let cmd = {
@@ -67,77 +110,51 @@ class MPIStream extends Duplex {
             sequence: msgSequence,
             payload: chunk
         };
-        this._parent._mpiSerializer.serializeAsync(cmd)
-            .then((data) => {
-                debug("MPIStream _write serializeAsync-data", this._localId, data);
-                return this._parent._transport.sendPPPMessage(data);
-            }).then((res) => {
-                debug("MPIStream _write sendPPPMessage-response", this._localId, res);
-                return this._parent._mpiParser.parseAsync(res);
-            }).then(data => {
-                debug("MPIStream _write parseAsync-data", this._localId, data);
 
-                if (data.command === C.bus.command.DISCONNECTION_REQUEST) {
-                    this._handleIncomingDisconnectRequest();
-                    cb();
-                    return;
-                }
+        let cmdData = await this._parent._mpiSerializer.serializeAsync(cmd);
+        debug("MPIStream _dataExchange cmdData", this._localId, cmdData);
 
-                if (data.command != C.bus.command.DATA_ACK) {
-                    cb(new Error(`Internal transport error: Unexpected command [${data.command}]`));
-                    this._parent._raiseMessageFromStream(data);
-                    return;
-                }
+        let responseData = await this._parent._transport.sendPPPMessage(cmdData);
+        debug("MPIStream _dataExchange responseData", this._localId, responseData);
 
-                if (data.sequence !== msgSequence) {
-                    cb(new Error(`Internal transport error: Unexpected sequence [${data.sequence}]`));
-                    return;
-                }
+        let response = await this._parent._mpiParser.parseAsync(responseData);
+        debug("MPIStream _dataExchange response", this._localId, response);
 
-                if (!data.status) {
-                    cb(new Error('Internal transport error: Got a negative acknowledge'));
-                    return;
-                }
+        // response checks
+        if (response.command != C.bus.command.DATA_ACK) {
+            debug("MPIStream _dataExchange err-response-command", this._localId, response.command);
+            this._parent._raiseMessageFromStream(response, this);
+            throw new Error(`Internal transport error: Unexpected command [${response.command}]`);
+        } else if (response.sequence !== msgSequence) {
+            debug("MPIStream _dataExchange err-response-sequence", this._localId, response.sequence, msgSequence);
+            throw new Error(`Internal transport error: Unexpected sequence [${response.sequence}]`);
+        } else if (!response.status) {
+            debug("MPIStream _dataExchange err-response-status", this._localId, response.status);
+            throw new Error('Internal transport error: Got a negative acknowledge');
+        }
+    }
 
-                cb();
-            }).catch(e => {
-                debug("MPIStream _write answer-catch", this._localId, e);
-                cb(e);
-            });
+    _releaseStream() {
+        debug("MPIStream _releaseStream", this._localId);
+        this._parent._streams.delete(this._localId);
+    }
+
+    _write(chunk, encoding, cb) {
+        debug("MPIStream _write", this._localId, encoding, chunk);
+
+        this._dataExchange(chunk).then(cb).catch(cb);
     }
 
     _final(cb) {
         debug("MPIStream _final", this._localId);
 
-        let cmd = {
-            type: C.type.BUS,
-            command: C.bus.command.DISCONNECTION_REQUEST,
-            mpiAddress: this._mpiAddr,
-            localId: this._localId,
-            remoteId: this._remoteId
-        };
-
-        this._parent._mpiSerializer.serializeAsync(cmd)
-            .then((data) => {
-                debug("MPIStream _final serializeAsync-data", this._localId, data);
-                return this._parent._transport.sendPPPMessage(data);
-            }).then((res) => {
-                debug("MPIStream _final message-response", this._localId, res);
-                return this._parent._mpiParser.parseAsync(res);
-            }).then(data => {
-                debug("MPIStream _final parseAsync-data", this._localId, data);
-                
-                if (data.command !== C.bus.command.DISCONNECTION_CONFIRM) {
-                    cb(new Error(`Internal transport disconnection error: Unexpected command [${data.command}]`));
-                    return;
-                }
-
-                this.emit('close');
-                cb();
-            }).catch(e => {
-                debug("MPIStream _final answer-catch", this._localId, e);
-                cb(e);
-            });
+        this._disconnectRequest().then(() => {
+            this._releaseStream();
+            cb();
+        }).catch(e => {
+            this._releaseStream();
+            cb(e);
+        });
     }
 }
 module.exports = MPIStream;

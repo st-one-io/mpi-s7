@@ -129,8 +129,7 @@ class MPIAdapter extends EventEmitter{
                 cb(response);
 
                 if(stream) {
-                    //TODO do we need do do anything else?
-                    stream._handleIncomingDisconnectRequest();
+                    stream._handleIncomingDisconnectRequest(true);
                 }
                 break;
 
@@ -144,9 +143,32 @@ class MPIAdapter extends EventEmitter{
         }
     }
 
-    _raiseMessageFromStream(e) {
-        debug("MPIAdapter _raiseErrorFromStream", e);
+    _raiseMessageFromStream(data, stream) {
+        debug("MPIAdapter _raiseErrorFromStream", stream._localId, data);
 
+        /**
+         * FIXME
+         * This will trigger a normal disconnection request that expects a
+         * response, but we shouldn't expect one, as we're actually answering a
+         * request that we're interpreting as a response from another command.
+         * A rewrite of the PPP api is needed, so that the request-response 
+         * is handled by the MPI logic, not the PPP one
+         */
+        //if (data.command === C.bus.command.DISCONNECTION_REQUEST) {
+        //    stream._handleIncomingDisconnectRequest();
+        //} else {
+            this.emit('error', new Error(`Unknown message command [${data.command}] from stream [${stream._localId}]`));
+        //}
+    }
+
+    _closeStreams() {
+        debug("MPIAdapter _closeStreams");
+
+        for (const stream of this._streams.values()) {
+            // this should close the stream, send the disconnect request
+            //  and remove itself from this _streams map
+            stream._handleIncomingDisconnectRequest();
+        }
     }
 
     // -----
@@ -197,6 +219,11 @@ class MPIAdapter extends EventEmitter{
         }
 
         let localId = this._streamNextId++;
+        if (this._streamNextId > 0x7f) {
+            debug("MPIAdapter createStream reset-_streamNextId");
+            // 0x7f is a guess on the maximum number, may need to change
+            this._streamNextId = 0;
+        }
 
         // STEP 1: send CONNECTION_REQUEST, expect CONNECTION_RESPONSE
         let connectionRequest = {
@@ -287,6 +314,9 @@ class MPIAdapter extends EventEmitter{
             debug("MPIAdapter close not-connected");
             return;
         }
+
+        // close any open stream before closing the adapter
+        this._closeStreams();
 
         this._connected = false;
         let payload = await this._mpiSerializer.serializeAsync({
