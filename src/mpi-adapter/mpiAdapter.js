@@ -323,7 +323,7 @@ class MPIAdapter extends EventEmitter{
             type: C.type.ADAPTER,
             command: C.adapter.command.DISCONNECT
         });
-        await this._transport.sendPPPMessage(payload);
+        await Promise.race([this._transport.sendPPPMessage(payload), new Promise(res => setTimeout(res, 3000))]);
         await this._transport.close();
     }
 }
