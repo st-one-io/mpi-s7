@@ -21,7 +21,6 @@ function getAdapter() {
     let usbDev = usb.findByIds(0x0908, 0x0004);
 
     if (!usbDev) {
-        console.log("No device found, exiting");
         return null;
     }
 
