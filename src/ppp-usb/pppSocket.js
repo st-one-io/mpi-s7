@@ -38,7 +38,9 @@ class PPPSocket extends Duplex {
             iface: null,
             endpointIn: null,
             endpointOut: null,
-            hadKernelDriver: false
+            hadKernelDriver: false,
+            outCount: 0,
+            closePending: false
         };
         this._pppParser = new PPPParser();
         this._pppSerializer = new PPPSerializer();
@@ -250,6 +252,11 @@ class PPPSocket extends Duplex {
         
     }
 
+    _closeTimeout() {
+        debug("PPPSocket _closeTimeout");
+        this._closeUsb();
+    }
+
     _closeUsb() {
         debug("PPPSocket _closeUsb");
 
@@ -257,37 +264,55 @@ class PPPSocket extends Duplex {
             clearTimeout(this._closing.timer);
         }
 
-        function maybeReject(e){
-            if (!e) return;
-
-            if(this._closing) {
-                this._closing.rej(e);
-            } else {
-                this.emit('error', e);
-            }
-
-            return true;
-        }
-
         try {
             let usb = this._usb;
 
+            usb.endpointIn.stopPoll(() => {
+                if (usb.outCount > 0) {
+                    debug("PPPSocket _closeUsb defer", usb.outCount);
+                    usb.closePending = true;
+                } else {
+                    this._closeUsb2();
+                }
+            });
+        } catch (e) {
+            if (this._closing) {
+                this._closing.rej(e);
+                this._closing = null;
+            } else {
+                this.emit('error', e);
+            }
+        }
+    }
+
+    _closeUsb2() {
+        debug("PPPSocket _closeUsb2");
+        
+        let usb = this._usb;
+        debug("PPPSocket _closeUsb2 outCount", usb.outCount);
+
+        try {
             usb.iface.release(true, (e) => {
-                if (maybeReject(e)) return;
+                if (e) throw e;
 
                 if (usb.hadKernelDriver && !usb.iface.isKernelDriverActive()) {
                     usb.iface.attachKernelDriver();
                 }
 
                 usb.device.close();
-                if(this._closing){
+                if (this._closing) {
                     this._closing.res();
                 }
                 this._closing = null;
                 this.emit('close');
             });
         } catch (e) {
-            maybeReject(e);
+            if (this._closing) {
+                this._closing.rej(e);
+                this._closing = null;
+            } else {
+                this.emit('error', e);
+            }
         }
     }
     
@@ -322,6 +347,7 @@ class PPPSocket extends Duplex {
             usb.endpointOut.on('error', e => this._onUsbError(e, 'out'));
             usb.endpointIn.on('end', () => this._onUsbEnd('in'));
             usb.endpointOut.on('end', () => this._onUsbEnd('out'));
+            usb.endpointOut.timeout = 500; //defaut of 500ms for out transsfers
             
             usb.endpointIn.on('data', d => {
                 debug("PPPSocket #onEndpointData", d);
@@ -329,7 +355,10 @@ class PPPSocket extends Duplex {
             });
             this._pppSerializer.on('data', d => {
                 debug("PPPSocket write-usb", d);
+                this._usb.outCount++;
                 this._usb.endpointOut.transfer(d, (e) => {
+                    this._usb.outCount--;
+                    if (this._usb.closePending) return this._closeUsb2();
                     if (!e) return;
                     this.emit('error', e);
                     this._closeUsb();
@@ -351,7 +380,7 @@ class PPPSocket extends Duplex {
             }
 
             this._connected = false;
-            let timer = setTimeout(() => this._closeUsb(), TIMEOUT_CLOSE);
+            let timer = setTimeout(() => this._closeTimeout(), TIMEOUT_CLOSE);
             this._closing = {res, rej, timer};
             this._close();
         });
