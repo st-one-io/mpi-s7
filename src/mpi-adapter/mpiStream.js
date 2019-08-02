@@ -77,6 +77,12 @@ class MPIStream extends Duplex {
             }).then(data => {
                 debug("MPIStream _write parseAsync-data", this._localId, data);
 
+                if (data.command === C.bus.command.DISCONNECTION_REQUEST) {
+                    this._handleIncomingDisconnectRequest();
+                    cb();
+                    return;
+                }
+
                 if (data.command != C.bus.command.DATA_ACK) {
                     cb(new Error(`Internal transport error: Unexpected command [${data.command}]`));
                     this._parent._raiseMessageFromStream(data);
