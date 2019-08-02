@@ -56,12 +56,14 @@ class MPIStream extends Duplex {
      * Handles a disconnection request
      * The @param disconnected parameter signalizes that disconnect request and
      * response has already been handled, so we don't need to do this again.
-     * @param {boolean} disconnected whether the stream is already disconnected
+     * @param {boolean} [disconnected] whether the stream is already disconnected
      */
     _handleIncomingDisconnectRequest(disconnected) {
         debug("MPIStream _handleIncomingDisconnectRequest", this._localId);
 
-        this._disconnected = !!disconnected;
+        if(disconnected){
+            this._disconnected = true;
+        }
 
         this.push(null); //signalizes end of read stream, emits 'end' event
         process.nextTick(() => this.emit('close')); //signalizes end of write stream
@@ -150,9 +152,11 @@ class MPIStream extends Duplex {
 
         this._disconnectRequest().then(() => {
             this._releaseStream();
+            this._handleIncomingDisconnectRequest();
             cb();
         }).catch(e => {
             this._releaseStream();
+            this._handleIncomingDisconnectRequest();
             cb(e);
         });
     }
