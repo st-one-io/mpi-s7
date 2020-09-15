@@ -7,7 +7,7 @@
     "test": "nyc --reporter=html --reporter=text --reporter=text-summary mocha --timeout=3000 test/**/**.spec.js",
     "doc": "jsdoc -d doc/jsdoc/ -r -R README.md src/"
   },
-  "author": "Guilherme Francescon Cittolin <guilherme.francescon@netsmarttech.com>",
+  "author": "Guilherme Francescon Cittolin <guilherme@st-one.io>",
   "license": "GPL-3.0-or-later",
   "devDependencies": {
     "chai": "^4.2.0",
