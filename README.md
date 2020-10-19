@@ -16,7 +16,7 @@ This node was created as part of the [ST-One](https://st-one.io) project.
 
 This library depends on the [node-usb](https://github.com/tessel/node-usb) library, therefore their requirements apply here. Apart from that, you can currently install it by running
 
-    npm install netsmarttech/mpi-s7
+    npm install mpi-s7
 
 ### Linux
 

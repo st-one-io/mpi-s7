@@ -13,19 +13,7 @@ const MpiAdapter = require('./mpi-adapter/mpiAdapter.js');
 const MpiStream = require('./mpi-adapter/mpiStream.js');
 const mpiConstants = require('./mpi-adapter/mpiConstants.json');
 
-const NodeS7 = require('./nodeS7.js');
-
-const usb = require('usb');
-
-function getAdapter() {
-    let usbDev = usb.findByIds(0x0908, 0x0004);
-
-    if (!usbDev) {
-        return null;
-    }
-
-    return new MpiAdapter(usbDev);
-}
+const AdapterManager = require('./adapterManager');
 
 module.exports = {
     PppParser,
@@ -38,7 +26,5 @@ module.exports = {
     MpiStream,
     mpiConstants,
 
-    NodeS7, 
-    
-    getAdapter
+    AdapterManager
 };

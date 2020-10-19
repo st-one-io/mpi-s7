@@ -12,6 +12,9 @@ const C = require('./mpiConstants.json');
 const util = require('util');
 const debug = util.debuglog('mpi-s7');
 
+/**
+ * @class
+ */
 class MPIStream extends Duplex {
 
     constructor(parent, opts, streamOpts) {
@@ -67,6 +70,24 @@ class MPIStream extends Duplex {
 
         this.push(null); //signalizes end of read stream, emits 'end' event
         process.nextTick(() => this.emit('close')); //signalizes end of write stream
+    }
+
+    /**
+     * Cleanly closes the stream, resolving the promise until the stream is completely
+     * closed
+     * @returns {Promise<>}
+     */
+    closeStream() {
+        debug("MPIStream closeStream", this._localId);
+
+        return new Promise((res, rej) => {
+            if (this._disconnected) {
+                process.nextTick(() => {res()});
+                return;
+            }
+            this._handleIncomingDisconnectRequest();
+            this.once('finish', () => res());
+        })
     }
 
     async _disconnectRequest() {

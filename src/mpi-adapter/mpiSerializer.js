@@ -14,15 +14,49 @@ const C = require('./mpiConstants.json');
 
 const DEFAULT_LOCAL_ID = 0x14;
 
-function isValid(elm, obj){
-    if(elm === undefined || elm === null) {
+function isValid(elm, obj) {
+    if (elm === undefined || elm === null) {
         return false;
     }
-    if(obj){
+    if (obj) {
         return !!Object.values(obj).find(e => e == elm);
     }
     return true;
 }
+
+/**
+ * @typedef {object} ConnectionParams
+ * @param {number} ttr
+ * @param {number} tslot
+ * @param {number} tid1
+ * @param {number} tid2
+ * @param {number} trdy
+ * @param {number} tquit
+ * @param {number} gapFactor
+ * @param {number} busSpeed
+ * @param {number} localBusAddr
+ * @param {number} maxBusAddr
+ * @param {number} retryLimit
+ * @param {number} busType
+ * @param {number} flags
+ * @param {number} [profile]
+ */
+
+const adapterConnectParams = [
+    { param: 'ttr', width: 2, offset: 3 },
+    { param: 'tslot', width: 2, offset: 5 },
+    { param: 'tid1', width: 2, offset: 7 },
+    { param: 'tid2', width: 2, offset: 9 },
+    { param: 'trdy', width: 2, offset: 11 },
+    { param: 'tqui', width: 1, offset: 13 },
+    { param: 'gapFactor', width: 1, offset: 14 },
+    { param: 'busSpeed', width: 1, offset: 15 },
+    { param: 'localBusAddr', width: 1, offset: 16 },
+    { param: 'maxBusAddr', width: 1, offset: 17 },
+    { param: 'retryLimit', width: 1, offset: 18 },
+    { param: 'busType', width: 1, offset: 20 },
+    { param: 'flags', width: 1, offset: 22 }
+]
 
 class MPISerializer extends Transform {
 
@@ -41,7 +75,7 @@ class MPISerializer extends Transform {
         debug("MPISerializer _transform");
 
         this.serialize(chunk, (err, data) => {
-            if(err) {
+            if (err) {
                 cb(err);
             } else {
                 this.push(data);
@@ -50,10 +84,10 @@ class MPISerializer extends Transform {
         });
     }
 
-    async serializeAsync(chunk){
+    async serializeAsync(chunk) {
         return new Promise((resolve, reject) => {
             this.serialize(chunk, (err, data) => {
-                if(err) {
+                if (err) {
                     reject(err);
                 } else {
                     resolve(data);
@@ -67,7 +101,7 @@ class MPISerializer extends Transform {
 
         let buf;
 
-        if (!chunk){
+        if (!chunk) {
             cb(new Error('Input required to serialize'));
         }
 
@@ -86,36 +120,34 @@ class MPISerializer extends Transform {
                         buf = Buffer.alloc(3);
                         break;
                     case C.adapter.command.CONNECT:
-                        //'01030217009F013C0090011400000502001F0501010380' //libnodave
-                        //'01030217009F013C0090011400000500000F0201010385FF0001000C0014003C000000' //step7
-                        //'01030217009F013C0090011400001402010F0501010380' //labViewMPI
-                        
-                        buf = Buffer.from('01030217009F013C0090011400000500000F0201010385FF0001000C0014003C000000', 'hex'); //libnodave
-                        /**
-                         * 00: 01 03 02 // connect command
-                         * 03: 17 00, 9F 01 // ttr, tslot
-                         * 07: 3C 00, 90 01 // tid1, tid2
-                         * 11: 14 00, 00, 05 // trdy, tquit, gapFactor
-                         * 15: 00, 00, 0F, // busSpeed, localBusAddr, maxBusAddr
-                         * 18: 02, // retryLimit
-                         * 19: 01 01 03 85 FF 00 01 00 0C 00 14 00 3C 00 00 00
-                         */
 
-                        //lets write what we know
-                        if (isValid(chunk.mpiBusSpeed)) {
-                            let speed = parseInt(chunk.mpiBusSpeed);
-                            if(isNaN(speed) || !isValid(speed, C.speed)){
-                                cb(new Error(`Unsupported speed value [${chunk.mpiBusSpeed}] for adapter connect command`));
-                            }
-                            //buf.writeUInt8(chunk.mpiBusSpeed, 15); //defaults to 0x02 (187K)
-                        }
+                        if (chunk.raw instanceof Buffer) {
+                            buf = Buffer.concat([Buffer.from('010302'), chunk.raw])
+                        } else {
 
-                        if (isValid(chunk.mpiLocalAddress)) {
-                            let localAddr = parseInt(chunk.mpiLocalAddress);
-                            if (isNaN(localAddr) || localAddr < 0 || localAddr > 127) {
-                                cb(new Error(`Invalid MPI local address value [${chunk.mpiLocalAddress}] for adapter connect command`));
+                            const isExtended = chunk.profile !== undefined && chunk.profile !== null && !isNaN(chunk.profile);
+
+                            buf = Buffer.allocUnsafe(isExtended ? 35 : 23);
+
+                            // write fixed/constant parts
+                            buf.writeUInt8(1, 19);
+                            buf.writeUInt8(3, 21);
+
+                            // write parameters
+                            for (const entry of adapterConnectParams) {
+                                const val = chunk[entry.param];
+                                //validate entry
+                                if (val === null || val === undefined || isNaN(val)) {
+                                    throw new Error(`Invalid or missing parameter [${entry.param}] for connecting to the adapter`);
+                                }
+
+                                buf.writeUIntLE(val, entry.offset, entry.width);
                             }
-                            buf.writeUInt8(chunk.mpiLocalAddress, 16); //defaults to 0x00
+
+                            if (isExtended) {
+                                buf.writeUInt8(chunk.profile, 23);
+                                buf.write('0001000C0014003C000000', 24, 'hex');
+                            }
                         }
 
                         break;
@@ -135,7 +167,7 @@ class MPISerializer extends Transform {
             case C.type.BUS:
 
                 let mpiAddress = parseInt(chunk.mpiAddress);
-                if(isNaN(mpiAddress) || mpiAddress < 0 || mpiAddress > 0x7f){
+                if (isNaN(mpiAddress) || mpiAddress < 0 || mpiAddress > 0x7f) {
                     cb(new Error(`Invalid MPI Address [${chunk.mpiAddress}]`));
                     return;
                 }
@@ -157,7 +189,7 @@ class MPISerializer extends Transform {
                 switch (chunk.command) {
                     case C.bus.command.CONNECTION_REQUEST:
                         subtype = C.bus.subtype.UNCONNECTED_DATA;
-                        
+
                         let rack = parseInt(chunk.rack) || 0;
                         let slot = 2;
                         if (isValid(chunk.slot)) {
@@ -169,7 +201,7 @@ class MPISerializer extends Transform {
                             commType = parseInt(chunk.commType);
                         }
 
-                        buf = new Buffer(18);
+                        buf = Buffer.allocUnsafe(18);
                         buf.writeUInt8(0x04, 7); //size of the next two?
                         buf.writeInt16BE(0x0080, 8);
                         buf.writeInt16BE(0x0002, 10);
@@ -177,7 +209,6 @@ class MPISerializer extends Transform {
                         buf.writeUInt8(0x02, 13); //size of the routing data???
                         buf.writeInt16BE(0x0100, 14);
                         buf.writeUInt8(commType, 16); //communication type
-                        //buf.writeUInt8(rack << 5 | slot, 17); //rack+slot
                         buf.writeUInt8(0, 17); //rack+slot
 
                         break;
@@ -185,14 +216,14 @@ class MPISerializer extends Transform {
                     //case C.bus.command.CONNECTION_RESPONSE: //answer only, won't implement for now
                     case C.bus.command.CONNECTION_CONFIRM:
                         let ccStatus = true;
-                        if(isValid(chunk.status)){
+                        if (isValid(chunk.status)) {
                             ccStatus = !!chunk.status;
                         }
 
                         buf = Buffer.alloc(8);
                         buf.writeUInt8(ccStatus ? 0x01 : 0xff, 7); // 0x01 == OK, not sure about 0xff
                         break;
-                    
+
                     case C.bus.command.DATA_EXCHANGE:
                         if (!(chunk.payload instanceof Buffer)) {
                             cb(new Error(`Payload required for a data exchange telegram`));
@@ -210,7 +241,7 @@ class MPISerializer extends Transform {
                         buf.writeUInt8(0x02, 2); //direction?? mpiBusAddr??? //XXX //TODO
                         chunk.payload.copy(buf, 8);
                         break;
-                    
+
                     case C.bus.command.DATA_ACK:
                         let ackSeq = parseInt(chunk.sequence) || 0;
                         if (isNaN(ackSeq) || ackSeq < 0 || ackSeq > 0xff) {
@@ -249,7 +280,7 @@ class MPISerializer extends Transform {
 
                 break;
 
-                
+
             default:
                 cb(new Error(`Unsupported telegram type [${chunk.type}]`));
                 return;
@@ -257,7 +288,7 @@ class MPISerializer extends Transform {
 
         //write type
         buf.writeUInt8(chunk.type, 0);
-        
+
         cb(null, buf);
     }
 }
