@@ -1,6 +1,6 @@
 {
   "name": "mpi-s7",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "description": "Node.JS library to communicate with MPI-USB adapters",
   "main": "src/index.js",
   "scripts": {
