@@ -16,6 +16,6 @@
     "nyc": "^15.1.0"
   },
   "dependencies": {
-    "usb": "^1.6.3"
+    "usb": "github:gfcittolin/node-usb"
   }
 }
