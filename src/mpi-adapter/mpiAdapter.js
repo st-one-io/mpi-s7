@@ -44,8 +44,6 @@ const BusSpeed = {
  */
 class MPIAdapter extends EventEmitter {
 
-    static BusSpeed = BusSpeed;
-
     /**
      * 
      * @param {Device} device 
@@ -238,7 +236,7 @@ class MPIAdapter extends EventEmitter {
     /**
      * 
      * @param {number} mpiAddr 
-     * @param {object} opts 
+     * @param {object} [opts] 
      */
     async createStream(mpiAddr, opts) {
         debug("MPIAdapter createStream", mpiAddr, opts);
@@ -487,6 +485,10 @@ class MPIAdapter extends EventEmitter {
         }
     }
 }
+
+// older versions of NodeJS don't support inner declaration of static class constants
+MPIAdapter.BusSpeed = BusSpeed;
+
 debug("create MPIAdapter");
 module.exports = MPIAdapter;
 
